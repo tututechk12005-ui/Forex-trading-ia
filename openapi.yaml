@@ -1,0 +1,857 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: ForexSignal AI Platform API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+  - name: auth
+  - name: pairs
+  - name: signals
+  - name: stats
+  - name: admin
+  - name: telegram
+  - name: settings
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Auth ───────────────────────────────────────────────────
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Bad request
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Unauthorized
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+
+  # ─── Forex Pairs ─────────────────────────────────────────────
+  /pairs:
+    get:
+      operationId: listPairs
+      tags: [pairs]
+      summary: List all forex pairs
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ForexPair"
+
+  /pairs/{symbol}:
+    get:
+      operationId: getPair
+      tags: [pairs]
+      summary: Get a forex pair by symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForexPair"
+        "404":
+          description: Not found
+
+  /pairs/{symbol}/price:
+    get:
+      operationId: getPairPrice
+      tags: [pairs]
+      summary: Get live price for a pair
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LivePrice"
+
+  # ─── Signals ─────────────────────────────────────────────────
+  /signals:
+    get:
+      operationId: listSignals
+      tags: [signals]
+      summary: List signals with optional filters
+      parameters:
+        - name: pair
+          in: query
+          schema:
+            type: string
+        - name: result
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignalList"
+
+  /signals/generate:
+    post:
+      operationId: generateSignal
+      tags: [signals]
+      summary: Generate a new signal for a pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignalGenerateInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Signal"
+
+  /signals/{id}:
+    get:
+      operationId: getSignal
+      tags: [signals]
+      summary: Get a signal by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Signal"
+        "404":
+          description: Not found
+
+  /signals/{id}/result:
+    patch:
+      operationId: updateSignalResult
+      tags: [signals]
+      summary: Update signal win/loss result
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignalResultInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Signal"
+
+  # ─── Analysis / Detectors ────────────────────────────────────
+  /analysis/{symbol}:
+    get:
+      operationId: getAnalysis
+      tags: [signals]
+      summary: Run live market analysis for a pair
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketAnalysis"
+
+  /detectors/{symbol}:
+    get:
+      operationId: getDetectors
+      tags: [signals]
+      summary: Get detector readings for a pair
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetectorReadings"
+
+  # ─── Statistics ──────────────────────────────────────────────
+  /stats/overview:
+    get:
+      operationId: getStatsOverview
+      tags: [stats]
+      summary: Get overall trading statistics
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsOverview"
+
+  /stats/performance:
+    get:
+      operationId: getPerformance
+      tags: [stats]
+      summary: Get profit/win-rate time series
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PerformancePoint"
+
+  /stats/pairs:
+    get:
+      operationId: getPairStats
+      tags: [stats]
+      summary: Get win/loss stats per pair
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PairStat"
+
+  # ─── Admin ───────────────────────────────────────────────────
+  /admin/dashboard:
+    get:
+      operationId: getAdminDashboard
+      tags: [admin]
+      summary: Get admin dashboard summary
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboard"
+
+  /admin/users:
+    get:
+      operationId: listUsers
+      tags: [admin]
+      summary: List all users
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /admin/logs:
+    get:
+      operationId: listAdminLogs
+      tags: [admin]
+      summary: List admin activity logs
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminLog"
+
+  /admin/pairs/{symbol}/toggle:
+    patch:
+      operationId: togglePair
+      tags: [admin]
+      summary: Enable or disable a forex pair
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TogglePairInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForexPair"
+
+  /admin/auto-analysis/toggle:
+    patch:
+      operationId: toggleAutoAnalysis
+      tags: [admin]
+      summary: Enable or disable automatic analysis cron
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToggleAutoAnalysisInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotSettings"
+
+  /admin/signal/send:
+    post:
+      operationId: adminSendSignal
+      tags: [admin]
+      summary: Admin manually sends a signal to Telegram
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSendSignalInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramBroadcastResult"
+
+  # ─── Settings ────────────────────────────────────────────────
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get bot settings (admin only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotSettings"
+
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update bot settings (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BotSettingsInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotSettings"
+
+  # ─── Telegram ────────────────────────────────────────────────
+  /telegram/subscribers:
+    get:
+      operationId: listSubscribers
+      tags: [telegram]
+      summary: List Telegram subscribers
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TelegramSubscriber"
+
+  /telegram/broadcast:
+    post:
+      operationId: broadcastMessage
+      tags: [telegram]
+      summary: Broadcast a message to all subscribers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BroadcastInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramBroadcastResult"
+
+  /telegram/webhook:
+    post:
+      operationId: telegramWebhook
+      tags: [telegram]
+      summary: Telegram webhook receiver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookAck"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    # ─── Auth ────────────────────────────────────────────────
+    RegisterInput:
+      type: object
+      required: [email, password, username]
+      properties:
+        email:     { type: string }
+        password:  { type: string }
+        username:  { type: string }
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:    { type: string }
+        password: { type: string }
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token: { type: string }
+        user:
+          $ref: "#/components/schemas/User"
+
+    User:
+      type: object
+      required: [id, email, username, role, createdAt]
+      properties:
+        id:        { type: integer }
+        email:     { type: string }
+        username:  { type: string }
+        role:      { type: string, enum: [admin, user] }
+        createdAt: { type: string }
+
+    # ─── Forex Pairs ─────────────────────────────────────────
+    ForexPair:
+      type: object
+      required: [id, symbol, name, enabled, category]
+      properties:
+        id:          { type: integer }
+        symbol:      { type: string }
+        name:        { type: string }
+        category:    { type: string }
+        enabled:     { type: boolean }
+        currentPrice: { type: ["number", "null"] }
+        priceChange:  { type: ["number", "null"] }
+        spread:       { type: ["number", "null"] }
+        volatility:   { type: ["string", "null"] }
+        trend:        { type: ["string", "null"] }
+        bias:         { type: ["string", "null"] }
+        confidence:   { type: ["number", "null"] }
+        updatedAt:    { type: ["string", "null"] }
+
+    LivePrice:
+      type: object
+      required: [symbol, price, change, changePercent, timestamp]
+      properties:
+        symbol:        { type: string }
+        price:         { type: number }
+        change:        { type: number }
+        changePercent: { type: number }
+        high:          { type: number }
+        low:           { type: number }
+        volume:        { type: ["number", "null"] }
+        timestamp:     { type: string }
+
+    # ─── Signals ─────────────────────────────────────────────
+    Signal:
+      type: object
+      required: [id, pair, direction, entryPrice, stopLoss, takeProfit1, takeProfit2, confidence, createdAt]
+      properties:
+        id:           { type: integer }
+        pair:         { type: string }
+        direction:    { type: string, enum: [BUY, SELL] }
+        entryPrice:   { type: number }
+        stopLoss:     { type: number }
+        takeProfit1:  { type: number }
+        takeProfit2:  { type: number }
+        confidence:   { type: number }
+        trend:        { type: ["string", "null"] }
+        explanation:  { type: ["string", "null"] }
+        result:       { type: ["string", "null"] }
+        pips:         { type: ["number", "null"] }
+        telegramSent: { type: boolean }
+        createdAt:    { type: string }
+        closedAt:     { type: ["string", "null"] }
+        rsi:          { type: ["number", "null"] }
+        macd:         { type: ["number", "null"] }
+        ema50:        { type: ["number", "null"] }
+        ema200:       { type: ["number", "null"] }
+        atr:          { type: ["number", "null"] }
+        session:      { type: ["string", "null"] }
+
+    SignalGenerateInput:
+      type: object
+      required: [symbol]
+      properties:
+        symbol:       { type: string }
+        sendTelegram: { type: boolean }
+
+    SignalResultInput:
+      type: object
+      required: [result]
+      properties:
+        result: { type: string, enum: [win, loss, breakeven] }
+        pips:   { type: ["number", "null"] }
+
+    SignalList:
+      type: object
+      required: [signals, total]
+      properties:
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Signal"
+        total: { type: integer }
+
+    # ─── Analysis ────────────────────────────────────────────
+    MarketAnalysis:
+      type: object
+      required: [symbol, direction, confidence, entryPrice, stopLoss, takeProfit1, takeProfit2, rsi, macd, ema50, ema200, atr, trend, explanation, session, generatedAt]
+      properties:
+        symbol:       { type: string }
+        direction:    { type: string }
+        confidence:   { type: number }
+        entryPrice:   { type: number }
+        stopLoss:     { type: number }
+        takeProfit1:  { type: number }
+        takeProfit2:  { type: number }
+        rsi:          { type: number }
+        macd:         { type: number }
+        ema50:        { type: number }
+        ema200:       { type: number }
+        atr:          { type: number }
+        trend:        { type: string }
+        explanation:  { type: string }
+        session:      { type: string }
+        breakout:     { type: boolean }
+        bosDetected:  { type: boolean }
+        chochDetected: { type: boolean }
+        fvgDetected:  { type: boolean }
+        liquiditySweep: { type: boolean }
+        generatedAt:  { type: string }
+
+    DetectorReadings:
+      type: object
+      required: [symbol, trend, liquidity, breakout, volatility, momentum, session, newsImpact]
+      properties:
+        symbol:     { type: string }
+        trend:
+          $ref: "#/components/schemas/DetectorCard"
+        liquidity:
+          $ref: "#/components/schemas/DetectorCard"
+        breakout:
+          $ref: "#/components/schemas/DetectorCard"
+        volatility:
+          $ref: "#/components/schemas/DetectorCard"
+        momentum:
+          $ref: "#/components/schemas/DetectorCard"
+        session:
+          $ref: "#/components/schemas/DetectorCard"
+        newsImpact:
+          $ref: "#/components/schemas/DetectorCard"
+
+    DetectorCard:
+      type: object
+      required: [name, status, accuracy, confidence, detail]
+      properties:
+        name:       { type: string }
+        status:     { type: string }
+        accuracy:   { type: number }
+        confidence: { type: number }
+        detail:     { type: string }
+
+    # ─── Statistics ──────────────────────────────────────────
+    StatsOverview:
+      type: object
+      required: [totalSignals, totalWins, totalLosses, totalBreakeven, winRate, totalPips, bestPair, worstPair, dailyProfit, weeklyProfit, monthlyProfit, todaySignals, activeSubscribers]
+      properties:
+        totalSignals:      { type: integer }
+        totalWins:         { type: integer }
+        totalLosses:       { type: integer }
+        totalBreakeven:    { type: integer }
+        winRate:           { type: number }
+        totalPips:         { type: number }
+        bestPair:          { type: ["string", "null"] }
+        worstPair:         { type: ["string", "null"] }
+        dailyProfit:       { type: number }
+        weeklyProfit:      { type: number }
+        monthlyProfit:     { type: number }
+        todaySignals:      { type: integer }
+        activeSubscribers: { type: integer }
+
+    PerformancePoint:
+      type: object
+      required: [date, profit, winRate, signals]
+      properties:
+        date:    { type: string }
+        profit:  { type: number }
+        winRate: { type: number }
+        signals: { type: integer }
+
+    PairStat:
+      type: object
+      required: [symbol, totalSignals, wins, losses, winRate, totalPips]
+      properties:
+        symbol:       { type: string }
+        totalSignals: { type: integer }
+        wins:         { type: integer }
+        losses:       { type: integer }
+        winRate:      { type: number }
+        totalPips:    { type: number }
+
+    # ─── Admin ───────────────────────────────────────────────
+    AdminDashboard:
+      type: object
+      required: [totalUsers, activeUsers, totalSignals, botUptime, winRate, lossRate, telegramSubscribers, todaySignals, autoAnalysisEnabled]
+      properties:
+        totalUsers:           { type: integer }
+        activeUsers:          { type: integer }
+        totalSignals:         { type: integer }
+        botUptime:            { type: string }
+        winRate:              { type: number }
+        lossRate:             { type: number }
+        telegramSubscribers:  { type: integer }
+        todaySignals:         { type: integer }
+        autoAnalysisEnabled:  { type: boolean }
+        totalProfit:          { type: number }
+
+    AdminLog:
+      type: object
+      required: [id, action, userId, details, createdAt]
+      properties:
+        id:        { type: integer }
+        action:    { type: string }
+        userId:    { type: ["integer", "null"] }
+        details:   { type: string }
+        createdAt: { type: string }
+
+    TogglePairInput:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+
+    ToggleAutoAnalysisInput:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+
+    AdminSendSignalInput:
+      type: object
+      required: [signalId]
+      properties:
+        signalId: { type: integer }
+
+    # ─── Bot Settings ─────────────────────────────────────────
+    BotSettings:
+      type: object
+      required: [id, autoAnalysisEnabled, analysisIntervalMinutes, telegramEnabled, updatedAt]
+      properties:
+        id:                      { type: integer }
+        autoAnalysisEnabled:     { type: boolean }
+        analysisIntervalMinutes: { type: integer }
+        telegramEnabled:         { type: boolean }
+        hasTelegramToken:        { type: boolean }
+        hasTwelveDataKey:        { type: boolean }
+        hasAlphaVantageKey:      { type: boolean }
+        hasOpenAiKey:            { type: boolean }
+        hasBinanceKey:           { type: boolean }
+        updatedAt:               { type: string }
+
+    BotSettingsInput:
+      type: object
+      properties:
+        telegramBotToken:        { type: string }
+        twelveDataApiKey:        { type: string }
+        alphaVantageApiKey:      { type: string }
+        openAiApiKey:            { type: string }
+        binanceApiKey:           { type: string }
+        autoAnalysisEnabled:     { type: boolean }
+        analysisIntervalMinutes: { type: integer }
+        telegramEnabled:         { type: boolean }
+
+    # ─── Telegram ────────────────────────────────────────────
+    TelegramSubscriber:
+      type: object
+      required: [id, chatId, username, tier, active, subscribedAt]
+      properties:
+        id:           { type: integer }
+        chatId:       { type: string }
+        username:     { type: ["string", "null"] }
+        firstName:    { type: ["string", "null"] }
+        tier:         { type: string, enum: [free, premium] }
+        active:       { type: boolean }
+        subscribedAt: { type: string }
+
+    BroadcastInput:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        tier:    { type: string, enum: [all, free, premium] }
+
+    TelegramBroadcastResult:
+      type: object
+      required: [sent, failed, total]
+      properties:
+        sent:   { type: integer }
+        failed: { type: integer }
+        total:  { type: integer }
+
+    WebhookUpdate:
+      type: object
+      properties:
+        update_id: { type: integer }
+      required: []
+
+    WebhookAck:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
